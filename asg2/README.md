@@ -1,0 +1,4 @@
+In this project, I created a 3D giraffe, that has the ability to move its leg, knee, and hand joints, as well as bend its neck. When holding down shift and clicking, the giraffe does a jumping animation and its legs split. The walking animation can also be turned off and on using the animation buttons. 
+
+Sources:
+    ClaudeAI: only used three chats, one called "circle rendering not working in WebGL" which was used to debug most of the code in the asg2.js file, one called, "alternating leg movement for walking animation" that helped me modify some of the leg movements in my walking animation, and the last chat was called "trouble shooting a technical issue", which I mostly used for debugging purposes as well. Overall, Claude was used to help create a third primitive, assess and improve performance of the code, mouse control to rotate the animal, and for my poke animation.
