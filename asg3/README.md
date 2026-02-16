@@ -1,0 +1,4 @@
+This 3D world is a cherry blossom world, with an ombre sunset sky and cherry blossom trees. There is also a game that can be played, when you press the key G, where you have to catch as many falling petals as you can before the time runs out.
+
+Sources:
+    Claude Ai: Used three chats, one called "Conditional color assignment not working", which was used for debugging purposes, another called "Passing UV data to renderfast function", in order to assist me in passing UV coordinates to an improved renderfast function, and lastly, "Optimizing performance while keeping blocks", which was used to find some optimization tips, define WebGL errors (debugging), and also helping with the dimensions of the world. Within these chats, I also used it to assist me in making the terrain patterns, adding/deleting blocks, making the petal game, and rotating the camera with the mouse.
