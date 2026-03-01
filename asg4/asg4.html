@@ -1,0 +1,68 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <title>Change a point color</title>
+    </head>
+
+    <body onload="main()">
+        <canvas id="webgl" width="400" height="400">
+        Please use a browser that supports "canvas"
+        </canvas>
+        <p>
+
+        <p id="numdot"></p>
+        <div>Performance (FPS): <span id="fps">0</span></div>
+        <p>
+
+        <p> <h2>Light Movements</h2> <p></p>
+
+        Light X <input type="range" min="-500" max="500" value="0" class="slider" id="lightSlideX">
+        Light Y <input type="range" min="-500" max="500" value="500" class="slider" id="lightSlideY">
+        Light Z <input type="range" min="-500" max="500" value="-100" class="slider" id="lightSlideZ">
+
+        <p>
+        Normals: <button type="button" id="normalOn">ON</button>
+        <button type="button" id="normalOff">OFF</button>
+
+        <p>
+        Light: <button type="button" id="lightOn">ON</button>
+        <button type="button" id="lightOff">OFF</button>
+        <p>
+        Spotlight: <button id="spotlightOn">ON</button>
+        <button id="spotlightOff">OFF</button>
+
+        
+        <p> <h2>Animal Movements</h2> <p>
+        
+        Animation: <button type="button" id="animationOnButton">ON</button>
+        <button type="button" id="animationOffButton">OFF</button>
+
+        <p>
+        Front Right Leg <input type="range" min="0" max="100" value="100" class="slider" id="redSlide">
+        <p>
+        Back Right Leg <input type="range" min="0" max="100" value="0" class="slider" id="greenSlide">
+        <p>
+        Front Left Leg <input type="range" min="-45" max="45" value="5" class="slider" id="yellowSlide">
+        <p>
+        Back Left Leg <input type="range" min="0" max="100" value="0" class="slider" id="blueSlide">
+        <p>
+        Knee Angle <input type="range" min="-45" max="20" value="0" class="slider" id="yellowSlide2">
+        <p>
+        Camera Angle <input type ="range" min="0" max="360" value ="5" class="slider" id="angleSlide">
+
+        <script src="lib/webgl-utils2.js"></script>
+        <script src="lib/webgl-debug2.js"></script>
+        <script src="lib/cuon-utils2.js"></script>
+        <script src="lib/cuon-matrix.js"></script>
+        <script src="Point2.js"></script>
+        <script src="Triangle2.js"></script>
+        <script src="Circle2.js"></script>
+        <script src="Cube.js"></script>
+        <script src="Petal.js"></script>
+        <script src="Vector.js"></script>
+        <script src="Camera.js"></script>
+        <script src="World.js"></script>
+        <script src="Sphere.js"></script>
+    
+    </body>
