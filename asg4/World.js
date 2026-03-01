@@ -505,7 +505,6 @@ function main() {
   setupWebGL();
   connectVariablestoGLSL();
   initBlockMap();
-  // No trees spawned — we're inside a room now
 
   addActionsForHtmlUI();
 
