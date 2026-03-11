@@ -1,0 +1,498 @@
+<!DOCTYPE html>
+<html lang="en">
+    <head>
+        <meta charset="utf-8" />
+        <style>
+            html, body {
+            margin: 60;
+            height: 90%;
+        }
+        #c {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+        </style>
+    </head>
+
+    <body>
+        <div id="startscreen" style="position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.7); display:flex; flex-direction:column; align-items:center; justify-content:center; color:white; font-family:Arial;">
+            <h1 style="font-size:64px; margin-bottom:10px; text-shadow:2px 2px 8px pink;">The Candyland Game</h1>
+            <p style="font-size:24px; margin-bottom:30px;">Walk into the cupcakes, cookies, and candy hearts to collect them. <br>Collect as many sweets as you can before time runs out!</p>
+            <button id="playbtn" style="font-size:32px; padding:15px 40px; background:hotpink; border:none; border-radius:20px; cursor:pointer; color:white; font-weight:bold;">Play Game</button>
+        </div>
+        
+        <div id="ui" style="display:none; position:fixed; top:20px; left:20px; color:white; font-size:24px; font-family:Arial; text-shadow:2px 2px 4px black;">
+            <div>Score: <span id="score">0</span></div>
+            <div>Time: <span id="timer">60</span>s</div>
+        </div>
+        
+        <div id="gameover" style="display:none; position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); color:white; font-size:48px; font-family:Arial; text-align:center; text-shadow:2px 2px 4px black; background:rgba(0,0,0,0.7); padding:40px; border-radius:20px;">
+            GAME OVER<br>
+            <span style="font-size:28px">Final Score: <span id="finalscore">0</span></span><br>
+            <button id="replaybtn" style="margin-top:20px; font-size:24px; padding:10px 30px; background:hotpink; border:none; border-radius:15px; cursor:pointer; color:white;">Play Again</button>
+        </div>
+        <canvas id="c"></canvas>
+
+        <script type="importmap">
+        {
+          "imports": {
+            "three": "https://cdn.jsdelivr.net/npm/three@0.183.2/build/three.module.js",
+            "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.183.2/examples/jsm/"
+          }
+        }
+        </script>
+
+        <script type="module">
+            import * as THREE from 'three';
+            import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
+            import {OBJLoader} from 'three/addons/loaders/OBJLoader.js';
+            import {MTLLoader} from 'three/addons/loaders/MTLLoader.js';
+            import { GLTFLoader } from 'three/addons/loaders/GLTFLoader.js';
+            import { FirstPersonControls } from 'three/addons/controls/FirstPersonControls.js';
+
+            function main() {
+                const canvas = document.querySelector('#c');
+                const renderer = new THREE.WebGLRenderer({antialias: true, canvas});
+
+                const fov = 75;
+                const aspect = 2;
+                const near = 0.1;
+                const far = 100;
+                const camera = new THREE.PerspectiveCamera(fov, aspect, near, far);
+                camera.position.z = 3;
+                camera.position.y = 1;
+                const controls = new OrbitControls(camera, canvas);
+                controls.target.set(0,0.5,0);
+                controls.update();
+
+                const keys = {};
+                document.addEventListener('keydown', (e) => keys[e.key.toLowerCase()] = true);
+                document.addEventListener('keyup', (e) => keys[e.key.toLowerCase()] = false);
+
+                const scene = new THREE.Scene();
+
+                let score = 0;
+                let timeLeft = 60;
+                let gameOver = false;
+                let gameStarted = false;
+                const collectibles = [];
+                let timerInterval = null;
+
+                // ambient light 
+                const ambientLight = new THREE.AmbientLight(0xffffff, 2);
+                scene.add(ambientLight);
+
+                // hemisphere light 
+                const hemisphereLight = new THREE.HemisphereLight(
+                    0xB1E1FF,  
+                    0xB97A20,  
+                    3       
+                );
+                scene.add(hemisphereLight);
+
+                // directional light 
+                const directionalLight = new THREE.DirectionalLight(0xFFFFFF, 3)
+                scene.add(directionalLight);
+
+                const loader = new THREE.TextureLoader();
+
+                const bgTexture = loader.load('textures/night_sky.jpg');
+                bgTexture.mapping = THREE.EquirectangularReflectionMapping;
+                scene.background = bgTexture;
+
+                const texture = loader.load( 'textures/dark_oak.jpg' );
+                texture.colorSpace = THREE.SRGBColorSpace;
+
+                const planeGeometry = new THREE.PlaneGeometry(50, 50);
+                const planeMaterial = new THREE.MeshPhongMaterial({color: 0x4eab3a});
+                const plane = new THREE.Mesh(planeGeometry, planeMaterial);
+
+                plane.rotation.x = -Math.PI / 2; 
+                plane.position.y = -0.5;        
+                scene.add(plane);
+
+                // trees
+                function makeTree(x, z, leavesColor, leavesTexture = null) {
+                    // trunk
+                    const trunkGeometry = new THREE.CylinderGeometry(0.5, 0.5, 5.0, 16);
+                    const trunkMaterial = new THREE.MeshPhongMaterial({color: 0xebbfaa});
+                    const trunkMesh = new THREE.Mesh(trunkGeometry, trunkMaterial);
+                    trunkMesh.position.set(x, 2, z);
+                    scene.add(trunkMesh);
+
+                    // leaves
+                    const leavesGeometry = new THREE.DodecahedronGeometry(4);
+                    let leavesMaterial;
+                    if (leavesTexture) {
+                        const tex = loader.load(leavesTexture);
+                        tex.colorSpace = THREE.SRGBColorSpace;
+                        tex.wrapS = THREE.RepeatWrapping;  
+                        tex.wrapT = THREE.RepeatWrapping;
+                        tex.repeat.set(3, 3);
+                        leavesMaterial = new THREE.MeshPhongMaterial({map: tex});
+                    } else {
+                        leavesMaterial = new THREE.MeshPhongMaterial({color: leavesColor});
+                    }
+                    const leavesMesh = new THREE.Mesh(leavesGeometry, leavesMaterial);
+                    leavesMesh.position.set(x, 2 + 5.0 / 2 + 4 / 2, z);
+                    scene.add(leavesMesh);
+                }
+
+                    // different color for each tree
+                    makeTree(5, 2, 0xce82ff);
+                    makeTree(-5, 4, 0x83b8ff);
+                    makeTree(8, -6, 0xff83b9, 'textures/pink_leaves.jpg');
+                    makeTree(-8, -3, 0xce82ff);
+                    makeTree(3, -8, 0x83b8ff);
+                    makeTree(12, 5, 0xff83b9, 'textures/pink_leaves.jpg');
+                    makeTree(-12, 8, 0x83b8ff);
+                    makeTree(15, -3, 0xce82ff);
+                    makeTree(-15, -7, 0xff83b9, 'textures/pink_leaves.jpg');
+                    makeTree(7, 12, 0x83b8ff);
+                    makeTree(-7, -12, 0xce82ff);
+                    makeTree(18, 10, 0xff83b9, 'textures/pink_leaves.jpg');
+                    makeTree(-18, 6, 0x83b8ff);
+                    makeTree(10, -15, 0xce82ff);
+                    makeTree(-10, 15, 0xff83b9, 'textures/pink_leaves.jpg');
+                    makeTree(20, -8, 0x83b8ff);
+                    makeTree(-20, -10, 0xce82ff);
+
+                // border blocks
+                const borderTexture = loader.load('textures/flower_texture.jpg');
+                borderTexture.colorSpace = THREE.SRGBColorSpace;
+                const borderMaterial = new THREE.MeshPhongMaterial({map: borderTexture});
+                const borderGeometry = new THREE.BoxGeometry(1, 1, 1);
+
+                function makeBorderCube(x, z) {
+                    for (let height = 0; height < 3; height++) {
+                        const cube = new THREE.Mesh(borderGeometry, borderMaterial);
+                        cube.position.set(x, height, z);  // stacks at y=0, y=1, y=2
+                        scene.add(cube);
+                    }
+                }
+
+                // border along all edges
+                const edge = 25;
+                const step = 1; 
+
+                for (let i = -edge; i <= edge; i += step) {
+                    makeBorderCube(i, edge);   
+                    makeBorderCube(i, -edge);  
+                    makeBorderCube(edge, i);   
+                    makeBorderCube(-edge, i);  
+                }
+
+                // heart candies
+                const heart = new THREE.Shape();
+                const hx = -2.5;
+                const hy = -5;
+                heart.moveTo(hx + 2.5, hy + 2.5);
+                heart.bezierCurveTo(hx + 2.5, hy + 2.5, hx + 2, hy, hx, hy);
+                heart.bezierCurveTo(hx - 3, hy, hx - 3, hy + 3.5, hx - 3, hy + 3.5);
+                heart.bezierCurveTo(hx - 3, hy + 5.5, hx - 1.5, hy + 7.7, hx + 2.5, hy + 9.5);
+                heart.bezierCurveTo(hx + 6, hy + 7.7, hx + 8, hy + 4.5, hx + 8, hy + 3.5);
+                heart.bezierCurveTo(hx + 8, hy + 3.5, hx + 8, hy, hx + 5, hy);
+                heart.bezierCurveTo(hx + 3.5, hy, hx + 2.5, hy + 2.5, hx + 2.5, hy + 2.5);
+
+                const extrudeSettings = {
+                    steps: 2,
+                    depth: 2,
+                    bevelEnabled: true,
+                    bevelThickness: 1,
+                    bevelSize: 1,
+                    bevelSegments: 2,
+                };
+
+                // candy hearts
+                function makeHeart(x, y, z, color, rotationY = 0) {
+                    const heartGeometry = new THREE.ExtrudeGeometry(heart, extrudeSettings);
+                    const heartMaterial = new THREE.MeshPhongMaterial({color: color});
+                    const heartMesh = new THREE.Mesh(heartGeometry, heartMaterial);
+                    heartMesh.scale.set(0.2, 0.2, 0.2);
+                    heartMesh.rotation.z = Math.PI;
+                    heartMesh.rotation.y = rotationY;
+                    heartMesh.position.set(x, y, z);
+                    heartMesh.userData.collected = false;
+                    heartMesh.userData.value = 5;
+                    scene.add(heartMesh);
+                    collectibles.push(heartMesh);
+                }
+
+                const heartSpacing = 4;
+
+                for (let i = -edge + 2; i <= edge - 2; i += heartSpacing) {
+                    makeHeart(i, 0.5, edge - 1, 0xffd2e7);                 
+                    makeHeart(i, 0.5, -edge + 1, 0xffd2e7);                 
+                    makeHeart(edge - 1, 0.5, i, 0xffd2e7, Math.PI / 2);     
+                    makeHeart(-edge + 1, 0.5, i, 0xffd2e7, Math.PI / 2);    
+                }
+
+                // ice cream
+
+                const gltfLoader = new GLTFLoader();
+
+                function randomPos() {
+                    return (Math.random() - 0.5) * 40;  
+                }
+
+                function spawnCollectibles() {
+                    collectibles.forEach(item => scene.remove(item));
+                    collectibles.length = 0;
+
+                    // spawn cupcakes (10)
+                    for (let i = 0; i < 10; i++) {
+                        makeCupcake(randomPos(), -0.5, randomPos());
+                    }
+
+                    // spawn cookies (10)
+                    for (let i = 0; i < 10; i++) {
+                        const angle = Math.random() * Math.PI * 2;
+                        makeCookie(randomPos(), 0.5, randomPos(), Math.PI / 2, angle, 0);
+                    }
+
+                    // spawn hearts (10)
+                    for (let i = 0; i < 20; i++) {
+                        makeHeart(randomPos(), 0.5, randomPos(), 0xffd2e7);
+                    }
+                }
+
+                function startGame() {
+                    score = 0;
+                    timeLeft = 60;
+                    gameOver = false;
+                    gameStarted = true;
+                    document.getElementById('score').textContent = 0;
+                    document.getElementById('timer').textContent = 60;
+                    document.getElementById('ui').style.display = 'block';
+                    document.getElementById('startscreen').style.display = 'none';
+                    document.getElementById('gameover').style.display = 'none';
+
+                    spawnCollectibles();
+
+                    if (timerInterval) clearInterval(timerInterval);
+                    timerInterval = setInterval(() => {
+                        if (gameOver) return;
+                        timeLeft--;
+                        document.getElementById('timer').textContent = timeLeft;
+                        if (timeLeft <= 0) {
+                            gameOver = true;
+                            document.getElementById('gameover').style.display = 'block';
+                            document.getElementById('finalscore').textContent = score;
+                            clearInterval(timerInterval);
+                        }
+                    }, 1000);
+                }
+
+                document.getElementById('playbtn').addEventListener('click', startGame);
+                document.getElementById('replaybtn').addEventListener('click', startGame);
+
+                function makeCupcake(x, y, z) {
+                    gltfLoader.load('objects/Cupcake.glb', (gltf) => {
+                        const model = gltf.scene;
+                        model.scale.set(5, 5, 5);
+                        model.position.set(x, y, z);
+                        model.userData.collected = false;
+                        model.userData.value = 10;
+                        scene.add(model);
+                        collectibles.push(model);
+                    });
+                }
+
+                function makeCookie(x, y, z, rx, ry, rz) {
+                    gltfLoader.load('objects/Cookie.glb', (gltf) => {
+                        const model = gltf.scene;
+                        model.scale.set(5, 5, 5);
+                        model.position.set(x, y, z);
+                        model.rotation.set(rx, ry, rz);
+                        model.userData.collected = false;
+                        model.userData.value = 15;
+                        scene.add(model);
+                        collectibles.push(model);
+                    });
+                }
+
+                // lollipops
+                const lollipops = [];
+
+                function makeLollipop(x, z) {
+                    gltfLoader.load('objects/Lollypop.glb', (gltf) => {
+                        const model = gltf.scene;
+                        model.scale.set(10, 10, 10);
+                        model.position.set(x, -0.5, z);
+                        scene.add(model);
+                        lollipops.push(model);
+                    });
+                }
+
+                makeLollipop(-7, 0);
+                makeLollipop(14, -6);
+                makeLollipop(-12, 10);
+                makeLollipop(6, -14);
+                makeLollipop(18, 5);
+                makeLollipop(-18, -8);
+
+                // chocolate
+                gltfLoader.load('objects/Chocolate Bar.glb', (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(5, 5, 5);
+                    model.position.set(0, -0.7, 8);
+                    model.rotation.set(0, 2, 0);
+                    scene.add(model);
+                });
+
+                gltfLoader.load('objects/Chocolate Bar.glb', (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(5, 5, 5);
+                    model.position.set(0, -0.7, 2);
+                    model.rotation.set(0, -2, 0);
+                    scene.add(model);
+                });
+
+                gltfLoader.load('objects/Chocolate Bar.glb', (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(5, 5, 5);
+                    model.position.set(0, -0.7, 14);
+                    model.rotation.set(0, -2, 0);
+                    scene.add(model);
+                });
+
+                gltfLoader.load('objects/Chocolate Bar.glb', (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(5, 5, 5);
+                    model.position.set(-1, -0.7, -4);
+                    model.rotation.set(0, 2, 0);
+                    scene.add(model);
+                });
+
+                gltfLoader.load('objects/Chocolate Bar.glb', (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(5, 5, 5);
+                    model.position.set(-1, -0.7, -10);
+                    model.rotation.set(0, -2, 0);
+                    scene.add(model);
+                });
+
+                gltfLoader.load('objects/Chocolate Bar.glb', (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(5, 5, 5);
+                    model.position.set(-1, -0.7, -16);
+                    model.rotation.set(0, 2, 0);
+                    scene.add(model);
+                });
+
+                // sundae
+                gltfLoader.load('objects/sundae.glb', (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(15, 15, 15);
+                    model.position.set(-12, -0.5, -17);  
+                    scene.add(model);
+                });
+
+                // ice cream
+                gltfLoader.load('objects/Ice Cream.glb', (gltf) => {
+                    const model = gltf.scene;
+                    model.scale.set(10, 10, 10);
+                    model.position.set(12, 0.5, 17);  
+                    scene.add(model);
+                });
+
+                function resizeRendererToDisplaySize(renderer) {
+                    const canvas = renderer.domElement;
+                    const width = canvas.clientWidth;
+                    const height = canvas.clientHeight;
+                    const needResize = canvas.width !== width || canvas.height !== height;
+                    if (needResize) {
+                        renderer.setSize(width, height, false);
+                        }
+                    return needResize;
+                    }
+
+                function render(time) {
+                    time *= 0.001;
+
+                    // keyboard movement
+                    const moveSpeed = 0.1;
+                    const direction = new THREE.Vector3();
+                    camera.getWorldDirection(direction);
+                    direction.y = 0;
+                    direction.normalize();
+
+                    const right = new THREE.Vector3();
+                    right.crossVectors(direction, new THREE.Vector3(0, 1, 0));
+
+                    if (keys['w']) {
+                        camera.position.addScaledVector(direction, moveSpeed);
+                        controls.target.addScaledVector(direction, moveSpeed);
+                    }
+                    if (keys['s']) {
+                        camera.position.addScaledVector(direction, -moveSpeed);
+                        controls.target.addScaledVector(direction, -moveSpeed);
+                    }
+                    if (keys['a']) {
+                        camera.position.addScaledVector(right, -moveSpeed);
+                        controls.target.addScaledVector(right, -moveSpeed);
+                    }
+                    if (keys['d']) {
+                        camera.position.addScaledVector(right, moveSpeed);
+                        controls.target.addScaledVector(right, moveSpeed);  // ← c
+                    }
+                    if (keys['e']) {
+                        controls.target.applyQuaternion(
+                            new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), -0.02)
+                                .premultiply(new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), 0))
+                        );
+                        camera.position.sub(controls.target);
+                        camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), -0.02);
+                        camera.position.add(controls.target);
+                    }
+                    if (keys['q']) {
+                        camera.position.sub(controls.target);
+                        camera.position.applyAxisAngle(new THREE.Vector3(0, 1, 0), 0.02);
+                        camera.position.add(controls.target);
+                    }
+                    controls.update();
+                    
+                    if (resizeRendererToDisplaySize(renderer)) {
+                        const canvas = renderer.domElement;
+                        camera.aspect = canvas.clientWidth / canvas.clientHeight;
+                        camera.updateProjectionMatrix();
+                    }
+
+                    lollipops.forEach(lollipop => {
+                        lollipop.rotation.y = time; 
+                    });
+
+                    if (gameStarted && !gameOver) {
+                        collectibles.forEach(item => {
+                            if (item.userData.collected) return;
+                            const dist = camera.position.distanceTo(item.position);
+                            if (dist < 3) {
+                                item.userData.collected = true;
+                                scene.remove(item);
+                                score += item.userData.value;
+                                document.getElementById('score').textContent = score;
+                            }
+                        });
+                    }
+       
+                    //const canvasAspect = canvas.clientWidth / canvas.clientHeight;
+                    //const imageAspect = bgTexture.image ? bgTexture.image.width / bgTexture.image.height : 1;
+                    //const aspect = imageAspect / canvasAspect;
+                    
+                    //bgTexture.offset.x = aspect > 1 ? (1 - 1 / aspect) / 2 : 0;
+                    //bgTexture.repeat.x = aspect > 1 ? 1 / aspect : 1;
+                    
+                    //bgTexture.offset.y = aspect > 1 ? 0 : (1 - aspect) / 2;
+                    //bgTexture.repeat.y = aspect > 1 ? 1 : aspect;
+
+                    renderer.render(scene, camera);
+                    requestAnimationFrame(render);
+                }
+                
+                requestAnimationFrame(render);
+            }
+            main();
+        </script>
+    </body>
+</html>
